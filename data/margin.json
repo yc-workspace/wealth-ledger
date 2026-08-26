@@ -1,0 +1,11 @@
+{
+  "updatedAt": "2026-08-26T11:52:33.586Z",
+  "source": "TAIFEX OpenAPI /v1/IndexFuturesAndOptionsMargining",
+  "margin": {},
+  "maintenanceMargin": {},
+  "fee": {
+    "TX": 45,
+    "MTX": 30,
+    "TMF": 20
+  }
+}
