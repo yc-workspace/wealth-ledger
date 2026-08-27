@@ -1,0 +1,32 @@
+{
+  "updatedAt": "2026-08-27T08:38:01.315Z",
+  "tickers": [
+    {
+      "ticker": "VOO",
+      "name": "VOO",
+      "currency": "USD",
+      "market": "US",
+      "sources": [
+        "watchlist"
+      ]
+    },
+    {
+      "ticker": "2330",
+      "name": "台G",
+      "currency": "TWD",
+      "market": "TW",
+      "sources": [
+        "holding"
+      ]
+    },
+    {
+      "ticker": "QQQM",
+      "name": "QQQM",
+      "currency": "USD",
+      "market": "US",
+      "sources": [
+        "holding"
+      ]
+    }
+  ]
+}
