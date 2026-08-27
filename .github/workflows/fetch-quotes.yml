@@ -1,0 +1,36 @@
+name: 更新即時報價
+
+on:
+  schedule:
+    # 盤中每 15 分鐘跑一次即時報價（只抓報價，不含歷史K線，速度快）
+    # 台北股市 09:00-13:30，美股 21:30-05:00（夏令）/ 22:30-06:00（冬令），這裡涵蓋兩邊主要時段
+    # cron 是 UTC 時間；台北 = UTC+8
+    - cron: '*/15 1-6 * * 1-5'    # 台北 09:00-14:45
+    - cron: '*/15 13-21 * * 1-6'  # 美股盤中（涵蓋夏冬令時間差，寧可多跑幾次）
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  fetch-quotes:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 這個 repo
+        uses: actions/checkout@v4
+
+      - name: 設定 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: 抓取即時報價
+        run: node scripts/fetch-quotes.mjs
+
+      - name: 提交更新後的 JSON 檔案
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/quotes.json
+          git diff --quiet --cached || git commit -m "自動更新即時報價 $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git push
