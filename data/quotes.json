@@ -1,5 +1,38 @@
 {
-  "updatedAt": "2026-08-27T08:34:30.273Z",
-  "quotes": {},
-  "note": "尚無 ticker，請先在 wealth-ledger 裡新增觀察清單或持股交易"
+  "updatedAt": "2026-08-27T22:40:03.843Z",
+  "quotes": {
+    "2330": {
+      "price": 2410,
+      "prevClose": 2410,
+      "change": 0,
+      "changePct": 0,
+      "volume": 16247745,
+      "currency": "TWD",
+      "exchangeName": "TAI",
+      "asOf": "2026-08-27T05:30:08.000Z",
+      "yahooSymbol": "2330.TW"
+    },
+    "VOO": {
+      "price": 708.75,
+      "prevClose": 701.01,
+      "change": 7.740000000000009,
+      "changePct": 1.1041211965592517,
+      "volume": 6737734,
+      "currency": "USD",
+      "exchangeName": "PCX",
+      "asOf": "2026-08-27T20:00:00.000Z",
+      "yahooSymbol": "VOO"
+    },
+    "QQQM": {
+      "price": 296.92,
+      "prevClose": 292.79,
+      "change": 4.1299999999999955,
+      "changePct": 1.4105673007957906,
+      "volume": 3162768,
+      "currency": "USD",
+      "exchangeName": "NGM",
+      "asOf": "2026-08-27T20:00:00.000Z",
+      "yahooSymbol": "QQQM"
+    }
+  }
 }
