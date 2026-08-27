@@ -37,12 +37,18 @@ function safeFileName(ticker) {
 
 async function main() {
   const tickers = await loadTickers();
+  await mkdir("data/history", { recursive: true });
+
   if (!tickers.length) {
-    console.log("watchlist 是空的，沒有東西要抓。");
+    console.log("watchlist 是空的（data/watchlist.json 還不存在，或裡面沒有任何 ticker），先放一個佔位檔案，讓這個資料夾能被 git 追蹤。");
+    await writeFile(
+      "data/history/.gitkeep",
+      "# 這個檔案只是為了讓空資料夾能被 git 記錄，尚無 ticker 時會只有這個檔案。\n" +
+        "# 之後在 wealth-ledger 裡新增觀察清單或持股交易後，重新跑一次這個 Action 就會產生真正的歷史資料。\n",
+      "utf-8"
+    );
     return;
   }
-
-  await mkdir("data/history", { recursive: true });
 
   for (const item of tickers) {
     const symbol = toYahooSymbol(item);
