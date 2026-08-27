@@ -1,0 +1,33 @@
+name: 更新歷史走勢
+
+on:
+  schedule:
+    # 每天台北時間 05:00（美股收盤後、台股開盤前）跑一次就夠，歷史K線不需要頻繁更新
+    - cron: '0 21 * * 1-6'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  fetch-history:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 這個 repo
+        uses: actions/checkout@v4
+
+      - name: 設定 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: 抓取歷史K線
+        run: node scripts/fetch-history.mjs
+
+      - name: 提交更新後的 JSON 檔案
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/history/
+          git diff --quiet --cached || git commit -m "自動更新歷史走勢 $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git push
