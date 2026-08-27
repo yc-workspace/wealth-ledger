@@ -21,7 +21,7 @@ jobs:
       - name: 設定 Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'   # Node 20 內建 fetch，不需要另外裝套件
+          node-version: '24'   # 直接用 24，避免「被強制升級」的警告訊息
 
       - name: 抓取 TAIFEX 保證金資料並轉換
         run: node scripts/fetch-margin.mjs
