@@ -40,8 +40,19 @@ async function fetchQuote(symbol) {
 
 async function main() {
   const tickers = await loadTickers();
+  await mkdir("data", { recursive: true });
+
   if (!tickers.length) {
-    console.log("watchlist 是空的，沒有東西要抓。");
+    console.log("watchlist 是空的（data/watchlist.json 還不存在，或裡面沒有任何 ticker），先寫一個空的 data/quotes.json 佔位。");
+    await writeFile(
+      "data/quotes.json",
+      JSON.stringify(
+        { updatedAt: new Date().toISOString(), quotes: {}, note: "尚無 ticker，請先在 wealth-ledger 裡新增觀察清單或持股交易" },
+        null,
+        2
+      ),
+      "utf-8"
+    );
     return;
   }
 
