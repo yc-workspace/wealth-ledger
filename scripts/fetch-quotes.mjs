@@ -1,8 +1,14 @@
 // 抓取 data/watchlist.json 裡每一檔股票的最新報價，寫成 data/quotes.json
 // 給 wealth-ledger 網頁工具的「投資總覽」「觀察清單」讀取
+//
+// 排程本身（.github/workflows/fetch-quotes.yml）設定成每分鐘觸發一次，
+// 但實際要不要真的去抓報價，由 scripts/market-hours.mjs 裡的時段表決定，
+// 不在時段內就直接跳過，不會浪費 Actions 執行時間、也不會產生沒必要的 commit。
+// 想改抓報價的時間範圍，只要改 market-hours.mjs，不用改這支腳本或 cron。
 
 import { writeFile, mkdir } from "node:fs/promises";
 import { loadTickers, toYahooSymbol, YAHOO_HEADERS } from "./yahoo-common.mjs";
+import { isTradingTime, activeWindow } from "./market-hours.mjs";
 
 async function fetchQuote(symbol) {
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
@@ -39,6 +45,18 @@ async function fetchQuote(symbol) {
 }
 
 async function main() {
+  const force = process.env.FORCE_FETCH === "true" || process.env.FORCE_FETCH === "1";
+  const win = activeWindow();
+  if (!force && !win) {
+    console.log("目前不在 market-hours.mjs 設定的交易時段內，略過這次抓取。");
+    return;
+  }
+  console.log(
+    force && !win
+      ? "手動強制抓取（不在設定時段內，但 FORCE_FETCH=true）。"
+      : `目前在「${win.name}」時段內，開始抓取。`
+  );
+
   const tickers = await loadTickers();
   await mkdir("data", { recursive: true });
 
