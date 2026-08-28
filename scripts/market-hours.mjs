@@ -23,8 +23,8 @@ export const TRADING_WINDOWS = [
     name: "美股",
     timeZone: "America/New_York",
     days: [1, 2, 3, 4, 5],
-    start: "04:00",
-    end: "20:00",
+    start: "00:00",
+    end: "23:59",
   },
 ];
 
