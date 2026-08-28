@@ -2,15 +2,22 @@ name: 更新即時報價
 
 on:
   schedule:
-    # 盤中每 15 分鐘跑一次即時報價（只抓報價，不含歷史K線，速度快）
-    # 台北股市 09:00-13:30，美股 21:30-05:00（夏令）/ 22:30-06:00（冬令），這裡涵蓋兩邊主要時段
-    # cron 是 UTC 時間；台北 = UTC+8
-    - cron: '*/15 1-6 * * 1-5'    # 台北 09:00-14:45
-    - cron: '*/15 13-21 * * 1-6'  # 美股盤中（涵蓋夏冬令時間差，寧可多跑幾次）
-  workflow_dispatch: {}
+    # 每分鐘觸發一次；實際要不要抓報價，由 scripts/market-hours.mjs 的時段表決定。
+    # 想改抓報價的時間範圍，去改 scripts/market-hours.mjs，不用改這裡的 cron。
+    - cron: '* * * * *'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: '忽略交易時段設定，強制抓取一次（測試用）'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
+
+concurrency:
+  group: fetch-quotes
+  cancel-in-progress: false
 
 jobs:
   fetch-quotes:
@@ -26,6 +33,8 @@ jobs:
 
       - name: 抓取即時報價
         run: node scripts/fetch-quotes.mjs
+        env:
+          FORCE_FETCH: ${{ github.event.inputs.force }}
 
       - name: 提交更新後的 JSON 檔案
         run: |
