@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-08-27T23:43:07.044Z",
+  "updatedAt": "2026-08-29T07:45:27.748Z",
   "tickers": [
     {
       "ticker": "VOO",
@@ -11,7 +11,7 @@
       ]
     },
     {
-      "ticker": "2330",
+      "ticker": "2330.TW",
       "name": "台G",
       "currency": "TWD",
       "market": "TW",
