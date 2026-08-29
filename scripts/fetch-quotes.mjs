@@ -2,13 +2,18 @@
 // 給 wealth-ledger 網頁工具的「投資總覽」「觀察清單」讀取
 //
 // 排程本身（.github/workflows/fetch-quotes.yml）設定成每分鐘觸發一次，
-// 但實際要不要真的去抓報價，由 scripts/market-hours.mjs 裡的時段表決定，
-// 不在時段內就直接跳過，不會浪費 Actions 執行時間、也不會產生沒必要的 commit。
+// 實際要不要真的去抓報價，由下面三個條件「任一成立」決定：
+//   1. 手動觸發時勾選 FORCE_FETCH
+//   2. 目前落在 scripts/market-hours.mjs 設定的交易時段內
+//   3. data/watchlist.json 的 updatedAt 比上一次成功抓取時記錄的版本新
+//      （代表 wealth-ledger 那邊剛新增/修改/刪除了 ticker，不管現在是否開盤，
+//       都立刻抓一次，讓新加入的標的馬上有報價可以看）
+// 都不成立才會跳過，不會浪費 Actions 執行時間、也不會產生沒必要的 commit。
 // 想改抓報價的時間範圍，只要改 market-hours.mjs，不用改這支腳本或 cron。
 
-import { writeFile, mkdir } from "node:fs/promises";
-import { loadTickers, toYahooSymbol, YAHOO_HEADERS } from "./yahoo-common.mjs";
-import { isTradingTime, activeWindow } from "./market-hours.mjs";
+import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { loadWatchlist, toYahooSymbol, YAHOO_HEADERS } from "./yahoo-common.mjs";
+import { activeWindow } from "./market-hours.mjs";
 
 async function fetchQuote(symbol) {
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
@@ -44,20 +49,50 @@ async function fetchQuote(symbol) {
   };
 }
 
+// 讀取上一次寫出的 data/quotes.json，用來比對 watchlist 的 updatedAt 有沒有變過
+async function readPrevQuotes() {
+  try {
+    const raw = await readFile("data/quotes.json", "utf-8");
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+// 寫一行給 GitHub Actions 的 workflow 讀（是否要順便觸發歷史K線補抓）
+async function setGithubOutput(name, value) {
+  const file = process.env.GITHUB_OUTPUT;
+  if (!file) return; // 本機手動測試時可能沒有這個環境變數，直接略過即可
+  const { appendFile } = await import("node:fs/promises");
+  await appendFile(file, `${name}=${value}\n`, "utf-8");
+}
+
 async function main() {
   const force = process.env.FORCE_FETCH === "true" || process.env.FORCE_FETCH === "1";
+  const watchlist = await loadWatchlist();
+  const tickers = watchlist.tickers;
+
+  const prevQuotes = await readPrevQuotes();
+  const listChanged =
+    watchlist.updatedAt != null &&
+    watchlist.updatedAt !== prevQuotes?.sourceWatchlistUpdatedAt;
+
   const win = activeWindow();
-  if (!force && !win) {
-    console.log("目前不在 market-hours.mjs 設定的交易時段內，略過這次抓取。");
+
+  if (!force && !listChanged && !win) {
+    console.log("目前不在交易時段內，且觀察清單沒有異動，略過這次抓取。");
+    await setGithubOutput("list_changed", "false");
     return;
   }
+
   console.log(
-    force && !win
-      ? "手動強制抓取（不在設定時段內，但 FORCE_FETCH=true）。"
+    force
+      ? "手動強制抓取（FORCE_FETCH=true）。"
+      : listChanged
+      ? "偵測到 data/watchlist.json 有異動（清單新增/修改/刪除了 ticker），不管現在是否在交易時段，強制抓取一次。"
       : `目前在「${win.name}」時段內，開始抓取。`
   );
 
-  const tickers = await loadTickers();
   await mkdir("data", { recursive: true });
 
   if (!tickers.length) {
@@ -65,12 +100,18 @@ async function main() {
     await writeFile(
       "data/quotes.json",
       JSON.stringify(
-        { updatedAt: new Date().toISOString(), quotes: {}, note: "尚無 ticker，請先在 wealth-ledger 裡新增觀察清單或持股交易" },
+        {
+          updatedAt: new Date().toISOString(),
+          sourceWatchlistUpdatedAt: watchlist.updatedAt,
+          quotes: {},
+          note: "尚無 ticker，請先在 wealth-ledger 裡新增觀察清單或持股交易",
+        },
         null,
         2
       ),
       "utf-8"
     );
+    await setGithubOutput("list_changed", String(listChanged));
     return;
   }
 
@@ -93,11 +134,13 @@ async function main() {
   await mkdir("data", { recursive: true });
   const out = {
     updatedAt: new Date().toISOString(),
+    sourceWatchlistUpdatedAt: watchlist.updatedAt,
     quotes,
     fetchErrors: Object.keys(errors).length ? errors : undefined,
   };
   await writeFile("data/quotes.json", JSON.stringify(out, null, 2), "utf-8");
   console.log(`已寫入 data/quotes.json，共 ${Object.keys(quotes).length} 檔成功。`);
+  await setGithubOutput("list_changed", String(listChanged));
 }
 
 main().catch((err) => {
