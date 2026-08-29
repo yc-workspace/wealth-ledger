@@ -2,8 +2,9 @@ name: 更新即時報價
 
 on:
   schedule:
-    # 每分鐘觸發一次；實際要不要抓報價，由 scripts/market-hours.mjs 的時段表決定。
-    # 想改抓報價的時間範圍，去改 scripts/market-hours.mjs，不用改這裡的 cron。
+    # 每分鐘觸發一次；實際要不要抓報價，由 scripts/market-hours.mjs 的時段表決定，
+    # 但只要 data/watchlist.json 有異動（新增/修改/刪除 ticker），這支腳本會自動
+    # 無視時段限制，立刻抓一次——不需要改這裡的 cron。
     - cron: '* * * * *'
   workflow_dispatch:
     inputs:
@@ -32,14 +33,22 @@ jobs:
           node-version: '24'
 
       - name: 抓取即時報價
+        id: fetchquotes
         run: node scripts/fetch-quotes.mjs
         env:
           FORCE_FETCH: ${{ github.event.inputs.force }}
+
+      # 觀察清單有異動時（新增/刪除 ticker），新標的的歷史K線平常要等到
+      # 每天 05:00 的 fetch-history 排程才會補上；這裡偵測到異動就順便馬上補抓，
+      # 不用等一整天。清單沒異動時這個步驟會直接被跳過，不會浪費執行時間。
+      - name: 觀察清單有異動，順便補抓歷史K線
+        if: steps.fetchquotes.outputs.list_changed == 'true'
+        run: node scripts/fetch-history.mjs
 
       - name: 提交更新後的 JSON 檔案
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/quotes.json
+          git add data/quotes.json data/history/
           git diff --quiet --cached || git commit -m "自動更新即時報價 $(date -u +'%Y-%m-%d %H:%M UTC')"
           git push
