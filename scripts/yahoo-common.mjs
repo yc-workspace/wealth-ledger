@@ -2,16 +2,23 @@
 
 import { readFile } from "node:fs/promises";
 
-export async function loadTickers() {
+// 讀取完整的 watchlist.json（含 updatedAt），用來判斷「清單是否有異動」
+export async function loadWatchlist() {
   let raw;
   try {
     raw = await readFile("data/watchlist.json", "utf-8");
   } catch {
     console.warn("找不到 data/watchlist.json（可能你的 wealth-ledger 工具還沒同步過），略過。");
-    return [];
+    return { updatedAt: null, tickers: [] };
   }
   const json = JSON.parse(raw);
-  return json.tickers || [];
+  return { updatedAt: json.updatedAt || null, tickers: json.tickers || [] };
+}
+
+// 舊有介面：只要 tickers 陣列（保留給還在用這個介面的腳本）
+export async function loadTickers() {
+  const { tickers } = await loadWatchlist();
+  return tickers;
 }
 
 // Yahoo Finance 需要台股代碼帶 .TW（上市）或 .TWO（上櫃）後綴，這裡先一律補 .TW，
