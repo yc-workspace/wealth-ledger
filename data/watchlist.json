@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-08-30T01:18:57.246Z",
+  "updatedAt": "2026-08-30T01:20:13.792Z",
   "tickers": [
     {
       "ticker": "VOO",
@@ -24,7 +24,7 @@
       "ticker": "IYW",
       "name": "IYW",
       "currency": "USD",
-      "market": "TW",
+      "market": "US",
       "sources": [
         "watchlist"
       ]
