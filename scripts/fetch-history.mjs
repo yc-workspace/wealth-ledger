@@ -1,4 +1,4 @@
-// 抓取每一檔股票近一年的日K線，存成 data/history/{ticker}.json
+// 抓取每一檔股票近十年的日K線，存成 data/history/{ticker}.json
 // 給觀察清單的走勢圖、技術指標（MA/RSI 等）在瀏覽器端計算用
 // 這支腳本一天跑一次就好，歷史資料不需要頻繁更新
 
@@ -8,7 +8,7 @@ import { loadTickers, toYahooSymbol, YAHOO_HEADERS } from "./yahoo-common.mjs";
 async function fetchHistory(symbol) {
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
     symbol
-  )}?range=1y&interval=1d`;
+  )}?range=10y&interval=1d`;
   const res = await fetch(url, { headers: YAHOO_HEADERS });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const json = await res.json();
