@@ -1,14 +1,19 @@
-// 抓取每一檔股票近十年的日K線，存成 data/history/{ticker}.json
+// 抓取每一檔股票從 1900 年至今的完整日K線，存成 data/history/{ticker}.json
 // 給觀察清單的走勢圖、技術指標（MA/RSI 等）在瀏覽器端計算用
 // 這支腳本一天跑一次就好，歷史資料不需要頻繁更新
+// 註：大部分標的實際掛牌日期都晚於 1900 年，Yahoo 會自動從該標的最早有資料的那天開始回傳，
+// 用 1900 當起點只是確保「不管什麼標的都盡量抓到最早的資料」，不用每檔手動判斷上市日。
 
 import { writeFile, mkdir } from "node:fs/promises";
 import { loadTickers, toYahooSymbol, YAHOO_HEADERS } from "./yahoo-common.mjs";
 
+const PERIOD1 = Math.floor(Date.UTC(1900, 0, 1) / 1000);
+
 async function fetchHistory(symbol) {
+  const period2 = Math.floor(Date.now() / 1000);
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
     symbol
-  )}?range=10y&interval=1d`;
+  )}?period1=${PERIOD1}&period2=${period2}&interval=1d`;
   const res = await fetch(url, { headers: YAHOO_HEADERS });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const json = await res.json();
