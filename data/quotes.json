@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-08-30T11:47:49.900Z",
+  "updatedAt": "2026-08-31T00:10:41.366Z",
   "sourceWatchlistUpdatedAt": "2026-08-30T11:35:20.491Z",
   "quotes": {
     "VOO": {
@@ -36,10 +36,10 @@
       "yahooSymbol": "IYW"
     },
     "QQQM": {
-      "price": 295,
+      "price": 294.976,
       "prevClose": 293.76,
-      "change": 1.240000000000009,
-      "changePct": 0.4221132897603517,
+      "change": 1.2160000000000082,
+      "changePct": 0.41394335511982855,
       "volume": 2642700,
       "currency": "USD",
       "exchangeName": "NGM",
