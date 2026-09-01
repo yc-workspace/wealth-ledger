@@ -7,6 +7,8 @@ on:
     - cron: '30 0 * * 1-5'
     - cron: '30 7 * * 1-5'
   workflow_dispatch: {}   # 允許在 GitHub 網頁上手動按「Run workflow」立即跑一次，方便測試
+  # 備註：保證金資料跟個股 ticker 無關（是台指期保證金），本來就是「一觸發就無條件抓」，
+  # 不像報價/歷史那樣需要另外做「強制模式」開關，所以這裡不用加 force 相關的 input。
 
 permissions:
   contents: write   # 需要這個權限才能把抓到的 JSON 檔案 commit 回這個 repo
