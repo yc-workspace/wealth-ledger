@@ -1,0 +1,47 @@
+name: Fetch Futures Quote (WTX)
+
+# 這個 workflow 跟現有的 fetch-quotes.yml / taifex-margin.yml 是分開的獨立管線，
+# 專門抓「台指期貨」在 Yahoo 奇摩股市的即時報價、漲跌、漲跌%，
+# 寫到 data/futures_quote.json，給 wealth-ledger.html 期貨頁使用。
+#
+# 排程沿用既有慣例：每分鐘一次、全年無休（不特別限制台股期貨交易時段），
+# 實際上「多久更新一次畫面」是由工具內「系統」頁的「台指期貨報價更新頻率」設定決定
+# （那個設定只是控制瀏覽器多久重新讀一次這個檔案，不影響這裡的抓取排程）。
+
+on:
+  schedule:
+    - cron: "* * * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "強制執行（目前排程已是每分鐘一次，這個開關保留給之後需要時使用）"
+        required: false
+        default: "false"
+
+concurrency:
+  group: fetch-futures-quote
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Fetch WTX quote
+        run: node scripts/fetch-futures-quote.mjs
+
+      - name: Commit and push if changed
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: update futures quote (WTX)"
+          file_pattern: data/futures_quote.json
