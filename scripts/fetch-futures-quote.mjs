@@ -1,37 +1,37 @@
 // scripts/fetch-futures-quote.mjs
 //
-// 抓取 Yahoo 奇摩股市「台指期貨」(WTX&，近月連續) 的即時報價、漲跌與漲跌%，
+// 抓取 Yahoo 奇摩股市「台指期貨」(WTX&，近月連續) 的成交價與昨收，
 // 寫入 data/futures_quote.json，供 wealth-ledger.html 的「期貨」頁使用。
 //
 // 這條資料管線跟 taifex-margin.yml（抓保證金）、fetch-quotes.yml（抓一般股票報價）
-// 是分開的，因為來源網站、更新頻率、資料形狀都不一樣：
-//   - taifex-margin.yml  -> TAIFEX 官網 -> data/margin.json（margin/fee，變動不頻繁）
-//   - fetch-quotes.yml   -> Yahoo Finance -> data/quotes.json（個股，交易時段內）
+// 是分開的獨立管線：
+//   - taifex-margin.yml  -> TAIFEX 官網        -> data/margin.json       （margin/fee，變動不頻繁）
+//   - fetch-quotes.yml   -> Yahoo Finance      -> data/quotes.json       （個股，交易時段內）
 //   - fetch-futures-quote.yml（本檔）-> Yahoo 奇摩股市 -> data/futures_quote.json（台指期貨點數，全年無休、每分鐘）
 //
-// 輸出格式：
-// {
-//   "symbol": "WTX",
-//   "price": 23150,          // 最新報價（點）
-//   "change": 85,             // 漲跌（點數，可能為負）
-//   "changePercent": 0.37,    // 漲跌 %（可能為負）
-//   "updatedAt": "2026-09-02T05:29:00.000Z"   // 這次抓取時間（UTC，工具端會自行換算台北時間顯示）
-// }
+// 抓取方式參考使用者原本用 Google Sheets IMPORTXML 驗證過可行的兩條 XPath：
+//   報價區塊：//*[@id='main-2-FutureChartOverview-Proxy']/div/div[3]/div[2]/ul
+//     - 這個 <ul> 裡面依序放著「開盤／買價／賣價／成交／單量／總量／未平倉／漲停／
+//       委買筆／委買口／漲幅／最高／最低／漲跌／約高／約低／昨收／跌停／委賣筆／委賣口」
+//       這些「中文標籤 + 數字」相連在一起的項目。我們只要「成交」跟「昨收」兩個數字，
+//       漲跌／漲跌% 自己算，不用網站上現成的（避免格式或四捨五入方式跟我們自己的不一樣）。
+//   時間區塊：//*[@id='main-1-FutureHeader-Proxy']/div[1]/div[2]/div/span
+//     - 內容類似「收盤 | 2026/09/02 19:52 更新」，這已經是台北時間，不用再換算時區。
+//
+// Yahoo 奇摩股市的頁面是伺服器端就把這些文字渲染出來的（IMPORTXML 才抓得到），
+// 所以這裡直接用純文字 regex 比對即可，不需要無頭瀏覽器、也不需要額外套件，
+// 符合這個專案「零依賴」的原則。若 Yahoo 改版導致抓不到，這支腳本會直接失敗並印出
+// 錯誤訊息，GitHub Actions 那次執行會顯示紅色 X，不會靜默寫入錯的資料。
 
 import { writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 
-const QUOTE_URL = "https://tw.stock.yahoo.com/quote/WTX&";
+const QUOTE_URL = "https://tw.stock.yahoo.com/future/WTX&";
 const OUTPUT_PATH = path.join(process.cwd(), "data", "futures_quote.json");
 
-// 有些環境（或 Yahoo 那邊改版）可能需要備援符號，先留一個陣列方便之後擴充。
-const CANDIDATE_SYMBOLS = ["WTX&", "WTX%26"];
-
-async function fetchHtml(symbol) {
-  const url = `https://tw.stock.yahoo.com/quote/${symbol}`;
+async function fetchHtml(url) {
   const res = await fetch(url, {
     headers: {
-      // 部分反爬蟲規則會擋掉沒有 UA 的請求
       "User-Agent":
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
       "Accept-Language": "zh-TW,zh;q=0.9",
@@ -43,99 +43,108 @@ async function fetchHtml(symbol) {
   return res.text();
 }
 
-// Yahoo 奇摩股市（tw.stock.yahoo.com）目前是用 Next.js 出的頁面，
-// 報價資料會內嵌在 <script id="__NEXT_DATA__" type="application/json">...</script> 裡面。
-// 這裡用寬鬆一點的方式去挖，避免頁面結構小改版就整支 script 掛掉：
-// 1) 先試 __NEXT_DATA__ 這個最穩定的區塊
-// 2) 抓不到的話，退而求其次直接用 regex 在整個 HTML 裡找 "regularMarketPrice" 相關欄位
-function extractQuoteFromHtml(html) {
-  // 方法一：__NEXT_DATA__
-  const nextDataMatch = html.match(
-    /<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/
-  );
-  if (nextDataMatch) {
-    try {
-      const json = JSON.parse(nextDataMatch[1]);
-      const found = deepFindQuote(json);
-      if (found) return found;
-    } catch {
-      // 掉到方法二
-    }
-  }
-
-  // 方法二：直接在原始 HTML 內用 regex 抓關鍵欄位（容錯用，格式不一定跟官方 API 一致）
-  const priceMatch = html.match(/"regularMarketPrice"\s*:\s*\{?\s*"?(?:raw)?"?\s*:?\s*(-?\d+(?:\.\d+)?)/);
-  const changeMatch = html.match(/"regularMarketChange"\s*:\s*\{?\s*"?(?:raw)?"?\s*:?\s*(-?\d+(?:\.\d+)?)/);
-  const changePctMatch = html.match(
-    /"regularMarketChangePercent"\s*:\s*\{?\s*"?(?:raw)?"?\s*:?\s*(-?\d+(?:\.\d+)?)/
-  );
-  if (priceMatch) {
-    return {
-      price: Number(priceMatch[1]),
-      change: changeMatch ? Number(changeMatch[1]) : null,
-      changePercent: changePctMatch ? Number(changePctMatch[1]) : null,
-    };
-  }
-  return null;
+// 從完整 HTML 裡，取出某個 id 開始往後一段（預設 12000 字），縮小搜尋範圍，
+// 避免「成交」「昨收」這種字眼在頁面其他地方（例如別的區塊）被誤抓。
+// 抓不到這個 id 的話回傳 null，呼叫端會再退回用整份 HTML 搜尋。
+function sliceAfterId(html, id, span = 12000) {
+  const idx = html.indexOf(`id="${id}"`);
+  if (idx === -1) return null;
+  return html.slice(idx, idx + span);
 }
 
-// 在 __NEXT_DATA__ 巨大的 JSON 樹裡遞迴找有 regularMarketPrice 的物件。
-// 用遞迴而不是寫死路徑，是因為 Yahoo 改版時 JSON 結構的巢狀路徑常常會變，
-// 但欄位名稱（regularMarketPrice 等）通常維持不變，這樣比較耐改版。
-function deepFindQuote(node, depth = 0) {
-  if (!node || typeof node !== "object" || depth > 12) return null;
-  if (
-    "regularMarketPrice" in node &&
-    (typeof node.regularMarketPrice === "number" ||
-      typeof node.regularMarketPrice?.raw === "number")
-  ) {
-    const pick = (v) => (typeof v === "number" ? v : v?.raw ?? null);
-    return {
-      price: pick(node.regularMarketPrice),
-      change: pick(node.regularMarketChange),
-      changePercent: pick(node.regularMarketChangePercent),
-    };
-  }
-  for (const key of Object.keys(node)) {
-    const result = deepFindQuote(node[key], depth + 1);
-    if (result) return result;
-  }
-  return null;
+// 把 HTML 標籤拿掉、只留文字，並把多個空白／換行壓成一個空白，
+// 這樣「成交」跟數字之間即使中間隔著 <span> 之類的標籤，轉成純文字後還是會連在一起
+// （對照使用者貼的 IMPORTXML 結果，就是「成交45,960.00」這種黏在一起的樣子）。
+function toPlainText(htmlChunk) {
+  return htmlChunk
+    .replace(/<script[\s\S]*?<\/script>/g, " ")
+    .replace(/<style[\s\S]*?<\/style>/g, " ")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function parseNumber(raw) {
+  if (raw == null) return null;
+  const n = Number(String(raw).replace(/,/g, ""));
+  return Number.isFinite(n) ? n : null;
+}
+
+function extractPriceAndPrevClose(html) {
+  const scoped =
+    sliceAfterId(html, "main-2-FutureChartOverview-Proxy") ?? html;
+  const text = toPlainText(scoped);
+
+  const priceMatch = text.match(/成交\s*([\d,]+(?:\.\d+)?)/);
+  const prevCloseMatch = text.match(/昨收\s*([\d,]+(?:\.\d+)?)/);
+
+  return {
+    price: parseNumber(priceMatch?.[1]),
+    prevClose: parseNumber(prevCloseMatch?.[1]),
+  };
+}
+
+// 抓「yyyy/mm/dd hh:mm 更新」這種格式的時間文字，轉成我們工具內統一使用的
+// "yyyy-mm-dd hh:mm:ss" 格式（沒有秒數資訊，補 00）。這段文字本身就是台北時間，
+// 不需要再做任何時區換算。
+function extractUpdatedAt(html) {
+  const scoped = sliceAfterId(html, "main-1-FutureHeader-Proxy") ?? html;
+  const text = toPlainText(scoped);
+  const m = text.match(/(\d{4})\/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2})\s*更新/);
+  if (!m) return null;
+  const [, yyyy, mm, dd, hh, min] = m;
+  return `${yyyy}-${mm}-${dd} ${hh}:${min}:00`;
 }
 
 async function main() {
-  let quote = null;
-  let lastErr = null;
+  const html = await fetchHtml(QUOTE_URL);
+  const { price, prevClose } = extractPriceAndPrevClose(html);
+  const scrapedUpdatedAt = extractUpdatedAt(html);
 
-  for (const symbol of CANDIDATE_SYMBOLS) {
-    try {
-      const html = await fetchHtml(symbol);
-      quote = extractQuoteFromHtml(html);
-      if (quote && quote.price != null) break;
-    } catch (err) {
-      lastErr = err;
-    }
-  }
-
-  if (!quote || quote.price == null) {
+  if (price == null || prevClose == null) {
     console.error(
-      "抓不到台指期貨報價，可能是 Yahoo 頁面結構改版了，需要更新 extractQuoteFromHtml()。",
-      lastErr ? String(lastErr) : ""
+      "抓不到「成交」或「昨收」，可能是 Yahoo 頁面結構改版了，需要更新 fetch-futures-quote.mjs 的解析邏輯。"
     );
     process.exit(1);
   }
 
+  const change = Math.round((price - prevClose) * 100) / 100;
+  const changePercent =
+    prevClose !== 0 ? Math.round((change / prevClose) * 10000) / 100 : null;
+
   const payload = {
     symbol: "WTX",
-    price: quote.price,
-    change: quote.change ?? null,
-    changePercent: quote.changePercent ?? null,
-    updatedAt: new Date().toISOString(),
+    price,
+    prevClose,
+    change,
+    changePercent,
+    // 優先用網站上抓到的「收盤/一般 | yyyy/mm/dd hh:mm 更新」時間；
+    // 抓不到的話才退回用這次程式執行的當下時間（會跟畫面上的台北時間對不太準，
+    // 但至少不會讓整支腳本失敗）。
+    updatedAt: scrapedUpdatedAt ?? taipeiNowString(),
   };
 
   await mkdir(path.dirname(OUTPUT_PATH), { recursive: true });
   await writeFile(OUTPUT_PATH, JSON.stringify(payload, null, 2) + "\n", "utf8");
   console.log("已寫入 data/futures_quote.json：", payload);
+}
+
+function taipeiNowString() {
+  const parts = new Intl.DateTimeFormat("zh-TW", {
+    timeZone: "Asia/Taipei",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date());
+  const get = (type) => parts.find((p) => p.type === type)?.value ?? "00";
+  return `${get("year")}-${get("month")}-${get("day")} ${get("hour")}:${get(
+    "minute"
+  )}:${get("second")}`;
 }
 
 main().catch((err) => {
