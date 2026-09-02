@@ -7,6 +7,12 @@ name: Fetch Futures Quote (WTX)
 # 排程沿用既有慣例：每分鐘一次、全年無休（不特別限制台股期貨交易時段），
 # 實際上「多久更新一次畫面」是由工具內「系統」頁的「台指期貨報價更新頻率」設定決定
 # （那個設定只是控制瀏覽器多久重新讀一次這個檔案，不影響這裡的抓取排程）。
+#
+# 注意：因為這個 repo 同時有好幾個每分鐘排程的 workflow（抓報價、抓保證金、抓這個），
+# 彼此都會 commit + push 同一個 main 分支，很容易撞在一起、其中一個 push 被拒絕
+# （non-fast-forward）。所以這裡不用 git-auto-commit-action 直接 push，
+# 改成手動 commit 後，用「pull --rebase 再 push、失敗就重試」的方式處理，
+# 跟工具內 github_pushFile() 對 409 衝突的重試邏輯是同樣的精神。
 
 on:
   schedule:
@@ -35,13 +41,37 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          # 用目前 GitHub Actions runner 預設的 LTS，避免 Node 20 棄用警告。
+          node-version: "22"
 
       - name: Fetch WTX quote
         run: node scripts/fetch-futures-quote.mjs
 
-      - name: Commit and push if changed
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: "chore: update futures quote (WTX)"
-          file_pattern: data/futures_quote.json
+      - name: Commit and push with retry (handles races with other every-minute workflows)
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if git diff --quiet -- data/futures_quote.json; then
+            echo "data/futures_quote.json 沒有變化，不需要 commit。"
+            exit 0
+          fi
+
+          git add data/futures_quote.json
+          git commit -m "chore: update futures quote (WTX)"
+
+          max_attempts=5
+          attempt=1
+          until git push origin HEAD:main; do
+            if [ "$attempt" -ge "$max_attempts" ]; then
+              echo "push 重試 $max_attempts 次仍失敗，放棄。"
+              exit 1
+            fi
+            echo "push 被拒絕（可能跟其他 workflow 撞在一起），第 $attempt 次重試前先 pull --rebase..."
+            git pull --rebase origin main
+            attempt=$((attempt + 1))
+            sleep $((RANDOM % 5 + 1))
+          done
+
+          echo "已成功推送 data/futures_quote.json。"
