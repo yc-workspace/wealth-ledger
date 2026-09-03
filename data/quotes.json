@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-09-03T02:22:44.669Z",
+  "updatedAt": "2026-09-03T02:24:07.737Z",
   "sourceWatchlistUpdatedAt": "2026-09-02T08:42:32.156Z",
   "quotes": {
     "VOO": {
@@ -18,10 +18,10 @@
       "prevClose": 2420,
       "change": -35,
       "changePct": -1.4462809917355373,
-      "volume": 4767611,
+      "volume": 4786164,
       "currency": "TWD",
       "exchangeName": "TAI",
-      "asOf": "2026-09-03T02:02:35.000Z",
+      "asOf": "2026-09-03T02:03:50.000Z",
       "yahooSymbol": "2330.TW"
     },
     "IYW": {
