@@ -2,14 +2,13 @@ name: 更新即時報價
 
 on:
   schedule:
-    # 每分鐘觸發一次；實際要不要抓報價，由 scripts/market-hours.mjs 的時段表決定，
-    # 但只要 data/watchlist.json 有異動（新增/修改/刪除 ticker），這支腳本會自動
-    # 無視時段限制，立刻抓一次——不需要改這裡的 cron。
+    # 每分鐘觸發一次，全年無休、不分市場時段（2026 年已拿掉時段限制，支援 BTC 等
+    # 全年無休的標的），每次觸發都直接抓取。
     - cron: '* * * * *'
   workflow_dispatch:
     inputs:
       force:
-        description: '忽略交易時段設定，強制抓取一次（測試用）'
+        description: '強制抓取一次（測試用；目前排程本來就每分鐘都會抓，這個開關保留給之後需要時使用）'
         type: boolean
         default: false
 
@@ -45,10 +44,27 @@ jobs:
         if: steps.fetchquotes.outputs.list_changed == 'true'
         run: node scripts/fetch-history.mjs
 
-      - name: 提交更新後的 JSON 檔案
+      - name: 提交更新後的 JSON 檔案（push 失敗時自動 pull --rebase 重試，避免跟其他每分鐘排程的 workflow 撞在一起）
         run: |
+          set -e
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/quotes.json data/history/
-          git diff --quiet --cached || git commit -m "自動更新即時報價 $(date -u +'%Y-%m-%d %H:%M UTC')"
-          git push
+          if git diff --quiet --cached; then
+            echo "沒有變化，不需要 commit。"
+            exit 0
+          fi
+          git commit -m "自動更新即時報價 $(date -u +'%Y-%m-%d %H:%M UTC')"
+
+          max_attempts=5
+          attempt=1
+          until git push; do
+            if [ "$attempt" -ge "$max_attempts" ]; then
+              echo "push 重試 $max_attempts 次仍失敗，放棄。"
+              exit 1
+            fi
+            echo "push 被拒絕（可能跟其他 workflow 撞在一起），第 $attempt 次重試前先 pull --rebase..."
+            git pull --rebase
+            attempt=$((attempt + 1))
+            sleep $((RANDOM % 5 + 1))
+          done
