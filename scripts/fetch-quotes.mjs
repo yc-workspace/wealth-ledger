@@ -1,19 +1,13 @@
 // 抓取 data/watchlist.json 裡每一檔股票的最新報價，寫成 data/quotes.json
 // 給 wealth-ledger 網頁工具的「投資總覽」「觀察清單」讀取
 //
-// 排程本身（.github/workflows/fetch-quotes.yml）設定成每分鐘觸發一次，
-// 實際要不要真的去抓報價，由下面三個條件「任一成立」決定：
-//   1. 手動觸發時勾選 FORCE_FETCH
-//   2. 目前落在 scripts/market-hours.mjs 設定的交易時段內
-//   3. data/watchlist.json 的 updatedAt 比上一次成功抓取時記錄的版本新
-//      （代表 wealth-ledger 那邊剛新增/修改/刪除了 ticker，不管現在是否開盤，
-//       都立刻抓一次，讓新加入的標的馬上有報價可以看）
-// 都不成立才會跳過，不會浪費 Actions 執行時間、也不會產生沒必要的 commit。
-// 想改抓報價的時間範圍，只要改 market-hours.mjs，不用改這支腳本或 cron。
+// 排程本身（.github/workflows/fetch-quotes.yml）設定成每分鐘觸發一次，全年無休、
+// 不分市場交易時段，每次觸發都會直接抓取（不再做「是否在交易時段內」的判斷——
+// 這支工具支援 BTC 等全年無休的標的，時段限制在 2026 年已經拿掉了）。
+// FORCE_FETCH / listChanged 只影響 log 訊息內容，不影響「要不要抓」。
 
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { loadWatchlist, toYahooSymbol, YAHOO_HEADERS } from "./yahoo-common.mjs";
-import { activeWindow } from "./market-hours.mjs";
 
 async function fetchQuote(symbol) {
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
@@ -77,20 +71,12 @@ async function main() {
     watchlist.updatedAt != null &&
     watchlist.updatedAt !== prevQuotes?.sourceWatchlistUpdatedAt;
 
-  const win = activeWindow();
-
-  if (!force && !listChanged && !win) {
-    console.log("目前不在交易時段內，且觀察清單沒有異動，略過這次抓取。");
-    await setGithubOutput("list_changed", "false");
-    return;
-  }
-
   console.log(
     force
       ? "手動強制抓取（FORCE_FETCH=true）。"
       : listChanged
-      ? "偵測到 data/watchlist.json 有異動（清單新增/修改/刪除了 ticker），不管現在是否在交易時段，強制抓取一次。"
-      : `目前在「${win.name}」時段內，開始抓取。`
+      ? "偵測到 data/watchlist.json 有異動（清單新增/修改/刪除了 ticker），這次一併補抓。"
+      : "每分鐘例行抓取（全年無休、不分市場時段）。"
   );
 
   await mkdir("data", { recursive: true });
