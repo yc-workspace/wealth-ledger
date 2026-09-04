@@ -31,8 +31,13 @@ export function toYahooSymbol(item) {
   return t;
 }
 
+// 共用的瀏覽器 User-Agent 字串——抓 Yahoo Finance JSON API（YAHOO_HEADERS）
+// 跟抓 Yahoo 奇摩股市網頁（fetch-futures-quote.mjs）都需要用到同一個值，
+// 集中放在這裡，之後要換 UA 字串只要改一個地方。
+export const BROWSER_USER_AGENT =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
+
 export const YAHOO_HEADERS = {
-  "User-Agent":
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+  "User-Agent": BROWSER_USER_AGENT,
   Accept: "application/json",
 };
