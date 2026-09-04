@@ -1,16 +1,16 @@
 {
-  "updatedAt": "2026-09-04T09:42:28.947Z",
+  "updatedAt": "2026-09-04T13:42:59.889Z",
   "sourceWatchlistUpdatedAt": "2026-09-02T08:42:32.156Z",
   "quotes": {
     "VOO": {
-      "price": 710.72,
-      "prevClose": 708.75,
-      "change": 1.9700000000000273,
-      "changePct": 0.27795414462081514,
-      "volume": 8585400,
+      "price": 709.81,
+      "prevClose": 707.24,
+      "change": 2.5699999999999363,
+      "changePct": 0.36338442395791193,
+      "volume": 1092886,
       "currency": "USD",
       "exchangeName": "PCX",
-      "asOf": "2026-09-03T20:00:00.000Z",
+      "asOf": "2026-09-04T13:42:57.000Z",
       "yahooSymbol": "VOO"
     },
     "2330.TW": {
@@ -25,25 +25,25 @@
       "yahooSymbol": "2330.TW"
     },
     "IYW": {
-      "price": 252.54,
-      "prevClose": 253.81,
-      "change": -1.2700000000000102,
-      "changePct": -0.5003742957330326,
-      "volume": 313000,
+      "price": 253.7,
+      "prevClose": 251.2,
+      "change": 2.5,
+      "changePct": 0.9952229299363059,
+      "volume": 21964,
       "currency": "USD",
       "exchangeName": "PCX",
-      "asOf": "2026-09-03T20:00:00.000Z",
+      "asOf": "2026-09-04T13:42:32.000Z",
       "yahooSymbol": "IYW"
     },
     "QQQM": {
-      "price": 295.51,
-      "prevClose": 296.92,
-      "change": -1.410000000000025,
-      "changePct": -0.4748753873097215,
-      "volume": 2104700,
+      "price": 296.425,
+      "prevClose": 295,
+      "change": 1.4250000000000114,
+      "changePct": 0.48305084745763094,
+      "volume": 272036,
       "currency": "USD",
       "exchangeName": "NGM",
-      "asOf": "2026-09-03T20:00:00.000Z",
+      "asOf": "2026-09-04T13:42:57.000Z",
       "yahooSymbol": "QQQM"
     }
   }
