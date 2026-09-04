@@ -25,6 +25,7 @@
 
 import { writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
+import { BROWSER_USER_AGENT } from "./yahoo-common.mjs";
 
 const QUOTE_URL = "https://tw.stock.yahoo.com/future/WTX&";
 const OUTPUT_PATH = path.join(process.cwd(), "data", "futures_quote.json");
@@ -32,8 +33,7 @@ const OUTPUT_PATH = path.join(process.cwd(), "data", "futures_quote.json");
 async function fetchHtml(url) {
   const res = await fetch(url, {
     headers: {
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+      "User-Agent": BROWSER_USER_AGENT,
       "Accept-Language": "zh-TW,zh;q=0.9",
     },
   });
