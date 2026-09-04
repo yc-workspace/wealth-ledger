@@ -28,10 +28,27 @@ jobs:
       - name: 抓取歷史K線
         run: node scripts/fetch-history.mjs
 
-      - name: 提交更新後的 JSON 檔案
+      - name: 提交更新後的 JSON 檔案（push 失敗時自動 pull --rebase 重試，避免跟其他每分鐘排程的 workflow 撞在一起）
         run: |
+          set -e
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/history/
-          git diff --quiet --cached || git commit -m "自動更新歷史走勢 $(date -u +'%Y-%m-%d %H:%M UTC')"
-          git push
+          if git diff --quiet --cached; then
+            echo "沒有變化，不需要 commit。"
+            exit 0
+          fi
+          git commit -m "自動更新歷史走勢 $(date -u +'%Y-%m-%d %H:%M UTC')"
+
+          max_attempts=5
+          attempt=1
+          until git push; do
+            if [ "$attempt" -ge "$max_attempts" ]; then
+              echo "push 重試 $max_attempts 次仍失敗，放棄。"
+              exit 1
+            fi
+            echo "push 被拒絕（可能跟其他 workflow 撞在一起），第 $attempt 次重試前先 pull --rebase..."
+            git pull --rebase
+            attempt=$((attempt + 1))
+            sleep $((RANDOM % 5 + 1))
+          done
