@@ -1,41 +1,13 @@
 {
-  "updatedAt": "2026-09-02T08:42:32.156Z",
+  "updatedAt": "2026-09-05T08:01:58.093Z",
   "tickers": [
     {
-      "ticker": "VOO",
-      "name": "VOO",
-      "currency": "USD",
-      "market": "US",
-      "sources": [
-        "watchlist"
-      ]
-    },
-    {
-      "ticker": "2330.TW",
-      "name": "台G",
+      "ticker": "0052.TW",
+      "name": "富邦科技",
       "currency": "TWD",
       "market": "TW",
       "sources": [
-        "watchlist",
-        "holding"
-      ]
-    },
-    {
-      "ticker": "IYW",
-      "name": "IYW",
-      "currency": "USD",
-      "market": "US",
-      "sources": [
         "watchlist"
-      ]
-    },
-    {
-      "ticker": "QQQM",
-      "name": "QQQM",
-      "currency": "USD",
-      "market": "US",
-      "sources": [
-        "holding"
       ]
     }
   ]
